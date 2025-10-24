@@ -1741,7 +1741,10 @@ const handleLogout = async (phoneNumber, session) => {
     session.changed('loginTime', true);
     await session.save();
 
-    await sendTypingIndicator(phoneNumber);
+    const typingSuccess = await sendTypingIndicator(phoneNumber);
+    if (!typingSuccess) {
+      await sendWhatsAppMessage(phoneNumber, "Please wait while we process your request...");
+    }
     const bodyText = "👋 *See you soon!* 🌟\n\nYou have been logged out successfully. Your data is safe with us.\n\n💭 *What would you like to do?*";
     const buttons = [
       { id: 'show_login_prompt', title: '🔐 Login Again' },
@@ -2251,9 +2254,26 @@ const handleViewCart = async (phoneNumber, session, parameters) => {
       msg += `${idx + 1}. ${item.productName} x${item.quantity} — ₦${(item.subtotal).toLocaleString()}\n`;
     });
     msg += `\nTotal: ₦${(result.cartTotal).toLocaleString()}\n`;
-    msg += `\n📍 *Navigation:*${result.pagination.currentPage > 1 ? `\n• Type "Previous" to go to page ${result.pagination.currentPage - 1}` : ''}${result.pagination.currentPage < result.pagination.totalPages ? `\n• Type "Next" to go to page ${result.pagination.currentPage + 1}` : ''}`;
-    msg += `\n• To checkout: type "checkout [address] [flutterwave|paystack|cash]"`;
-    await sendWhatsAppMessage(phoneNumber, formatResponseWithOptions(msg, isLoggedIn));
+    
+    // Create navigation buttons instead of text prompts
+    const buttons = [];
+    
+    // Add checkout button
+    buttons.push({ id: 'show_checkout', title: '💳 Checkout' });
+    
+    // Add navigation buttons if needed
+    if (result.pagination.currentPage > 1) {
+      buttons.push({ id: 'cart_prev_page', title: '⬅️ Previous' });
+    }
+    
+    if (result.pagination.currentPage < result.pagination.totalPages) {
+      buttons.push({ id: 'cart_next_page', title: '➡️ Next' });
+    }
+    
+    // Add main menu button
+    buttons.push({ id: 'show_help_menu', title: '📋 Main Menu' });
+    
+    await sendInteractiveMessage(phoneNumber, msg, buttons);
   } catch (error) {
     console.error('Error viewing cart:', error);
     await sendWhatsAppMessage(phoneNumber, formatResponseWithOptions('Sorry, we encountered an error while fetching your cart.', isAuthenticatedSession(session)));
@@ -3040,6 +3060,27 @@ const handleInteractiveMessage = async (message, phoneNumber, messageId) => {
       console.log(`[CONTEXT_CLEAR] Cleared pagination context for user selecting a new menu item.`);
     }
   }
+  // Handle cart navigation buttons
+  if (replyId === 'cart_next_page' || replyId === 'cart_prev_page') {
+    const session = await Session.findOne({ where: { phoneNumber } });
+    if (session && session.data && session.data.cartPagination) {
+      const currentPage = session.data.cartPagination.currentPage || 1;
+      const newPage = replyId === 'cart_next_page' ? currentPage + 1 : currentPage - 1;
+      
+      session.data.cartPagination.currentPage = newPage;
+      session.changed('data', true);
+      await session.save();
+      
+      await handleViewCart(phoneNumber, session);
+      return;
+    }
+  }
+  
+  if (replyId === 'show_checkout') {
+    await sendWhatsAppMessage(phoneNumber, "To complete your checkout, please provide your delivery address and payment method using this format:\n\n`checkout [address] [flutterwave|paystack|cash]`\n\nFor example: `checkout 123 Main St, Lagos flutterwave`");
+    return;
+  }
+  
   // Route the reply ID to the appropriate action
   // This is like a mini-router for button clicks.
   switch (replyId) {

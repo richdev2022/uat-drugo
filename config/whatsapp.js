@@ -23,8 +23,10 @@ const sendTypingIndicator = async (phoneNumber) => {
       to: phoneNumber,
       typing: true
     });
+    return true;
   } catch (error) {
     console.warn(`⚠️  Could not send typing indicator to ${phoneNumber}:`, error.message);
+    return false;
   }
 };
 

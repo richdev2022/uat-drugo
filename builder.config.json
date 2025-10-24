@@ -1,6 +1,32 @@
 {
   "command": "npm run dev",
-  "serverUrl": "https://localhost:10000",
+  "serverUrl": "http://localhost:10000",
   "authenticateProxy": false,
-  "commitMode": "commits"
+  "commitMode": "commits",
+  "nodeVersion": "18.19.0",
+  "env": {
+    "NODE_ENV": "development",
+    "PORT": "10000",
+    "LOG_LEVEL": "info"
+  },
+  "ignorePatterns": [
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    ".env",
+    ".next",
+    ".vercel"
+  ],
+  "watch": {
+    "patterns": [
+      "index.js",
+      "config/**/*.js",
+      "models/**/*.js",
+      "services/**/*.js",
+      "utils/**/*.js",
+      "handlers/**/*.js"
+    ],
+    "ignore": ["node_modules/**", ".env"]
+  }
 }
